@@ -146,7 +146,7 @@ public class ProcessViewModel : INotifyPropertyChanged
     
     private void SetupTimer()
     {
-        _refreshTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(2) };
+        _refreshTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(_updateInterval) };
         _refreshTimer.Tick += async (s, e) => await RefreshProcessesAsync();
         _refreshTimer.Start();
     }
