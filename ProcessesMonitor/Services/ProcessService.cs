@@ -13,8 +13,20 @@ public class ProcessService
     public static List<ProcessInfo> GetAllProcesses()
     {
         var processList = new List<ProcessInfo>();
+        var parentIds = new Dictionary<int, int>();
+
+        // ParentId для всех процессов одним запросом
+        try
+        {
+            using var searcher = new ManagementObjectSearcher("SELECT ProcessId, ParentProcessId FROM Win32_Process");
+            foreach (ManagementObject obj in searcher.Get())
+            {
+                parentIds[(int)(uint)obj["ProcessId"]] = (int)(uint)obj["ParentProcessId"];
+            }
+        }
+        catch { }
+
         var processes = Process.GetProcesses();
-    
         foreach (var p in processes)
         {
             try
@@ -25,10 +37,11 @@ public class ProcessService
                     Name = p.ProcessName,
                     Priority = p.PriorityClass,
                     MemoryUsage = p.WorkingSet64,
-                    ThreadCount = p.Threads.Count
+                    ThreadCount = p.Threads.Count,
+                    ParentId = parentIds.ContainsKey(p.Id) ? parentIds[p.Id] : 0
                 });
             }
-            catch { /* Пропускаем процессы без доступа */ }
+            catch { }
         }
         return processList;
     }
