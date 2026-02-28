@@ -21,13 +21,27 @@
                 </TextBlock>
                 
                 <TextBlock Text="Основные функции:" FontWeight="Bold" Margin="0,0,0,5"/>
-                <TextBlock TextWrapping="Wrap" Margin="20,0,0,15">
-                    <!-- Требуется заполнить -->
-                </TextBlock>
+                <StackPanel Margin="20,0,0,15">
+                    <TextBlock Text="• Просмотр списка процессов с детальной информацией (память, потоки, процессорное время)." TextWrapping="Wrap" Margin="0,0,0,5"/>
+                    <TextBlock Text="• Отслеживание потоков выбранного процесса с их статусами и приоритетами." TextWrapping="Wrap" Margin="0,0,0,5"/>
+                    <TextBlock Text="• Отображение древовидной иерархии процессов (связь родитель-потомок)." TextWrapping="Wrap" Margin="0,0,0,5"/>
+                    <TextBlock Text="• Наглядная визуализация данных (Топ-10 процессов по потреблению памяти)." TextWrapping="Wrap" Margin="0,0,0,5"/>
+                    <TextBlock Text="• Поиск процессов по имени и удобная фильтрация системных служб." TextWrapping="Wrap" Margin="0,0,0,5"/>
+                </StackPanel>
                 
                 <TextBlock Text="Управление:" FontWeight="Bold" Margin="0,0,0,5"/>
-                <TextBlock TextWrapping="Wrap" Margin="20,0,0,15">
-                    <!-- Требуется заполнить -->
+                <StackPanel Margin="20,0,0,15">
+                    <TextBlock Text="• Изменение приоритета выполнения процесса посредством выбора варианта из выпадающего списка на панели «Управление» с последующим подтверждением выбранного варианта нажатием кнопки «Применить»." TextWrapping="Wrap" Margin="0,0,0,5"/>
+                    <TextBlock Text="• Для редактирования маски CPU Affinity (выбор ядер процессора, на которых разрешено выполняться процессу) отмечаются соответствующие номеру ядра ячейки." TextWrapping="Wrap" Margin="0,0,0,5"/>
+                    <TextBlock Text="• Принудительное завершение выбранных процессов осуществляется нажатием кнопки «Завершить процесс»." TextWrapping="Wrap" Margin="0,0,0,5"/>
+                    <TextBlock Text="• Настройка интервала автоматического обновления таблиц (2, 5 или 10 секунд) осуществляется через выпадающий список вверху панели (над таблицей)." TextWrapping="Wrap" Margin="0,0,0,5"/>
+                </StackPanel>
+                
+                <TextBlock Text="Примечание:" FontWeight="Bold" Foreground="DarkRed" Margin="0,0,0,5"/>
+                <TextBlock TextWrapping="Wrap" Margin="20,0,0,15" Foreground="DarkRed">
+                    <Run Text="Будьте осторожны при завершении системных процессов или установке приоритета "/>
+                    <Run Text="Realtime" FontWeight="Bold"/>
+                    <Run Text=" — это может привести к нестабильной работе операционной системы."/>
                 </TextBlock>
             </StackPanel>
         </ScrollViewer>
