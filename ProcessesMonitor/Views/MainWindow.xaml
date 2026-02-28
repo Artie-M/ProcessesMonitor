@@ -2,6 +2,7 @@
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:vm="clr-namespace:ProcessesMonitor.ViewModels"
+        xmlns:lvc="clr-namespace:LiveCharts.Wpf;assembly=LiveCharts.Wpf"
         Title="ProcessesMonitor" Height="700" Width="700"
         WindowStartupLocation="CenterScreen">
     <DockPanel>
@@ -13,99 +14,122 @@
             </ToolBar>
         </ToolBarTray>
         <TabControl Margin="10">
-            <TabItem Header="Процессы">
-                <Grid Margin="10">
-                    <Grid.RowDefinitions>
-                        <RowDefinition Height="Auto"/> <!-- Верхняя панель управления -->
-                        <RowDefinition Height="2*"/>    <!-- DataGrid процессов -->
-                        <RowDefinition Height="*"/> <!-- DataGrid потоков -->
-                        <RowDefinition Height="Auto"/> <!-- Панель управления выбранным процессом -->
-                        <RowDefinition Height="Auto"/> <!-- Статус-бар -->
-                    </Grid.RowDefinitions>
-                    
-                    <!-- Верхняя панель -->
-                    <StackPanel Grid.Row="0" Orientation="Horizontal" Margin="0,0,0,10">
-                        <TextBox Width="200" Margin="0,0,10,0" 
-                                 Text="{Binding SearchText, UpdateSourceTrigger=PropertyChanged}"
-                                 PreviewKeyDown="SearchBox_PreviewKeyDown">
-                            <TextBox.ToolTip>Поиск по имени процесса</TextBox.ToolTip>
-                        </TextBox>
-
-                        <CheckBox Content="Только системные" Margin="0,0,10,0"
-                                  IsChecked="{Binding ShowOnlySystem}"/>
+    <TabItem Header="Процессы">
+        <Grid Margin="10">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="2*"/>
+                <RowDefinition Height="*"/>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="Auto"/>
+            </Grid.RowDefinitions>
+            
+            <StackPanel Grid.Row="0" Orientation="Horizontal" Margin="0,0,0,10">
+                <TextBox Width="200" Margin="0,0,10,0" Text="{Binding SearchText, UpdateSourceTrigger=PropertyChanged}" PreviewKeyDown="SearchBox_PreviewKeyDown">
+                    <TextBox.ToolTip>Поиск по имени процесса</TextBox.ToolTip>
+                </TextBox>
+                <CheckBox Content="Только системные" VerticalAlignment="Center" Margin="0,0,10,0" IsChecked="{Binding ShowOnlySystem}"/>
+                
+                <TextBlock Text="Обновление:" VerticalAlignment="Center" Margin="10,0,5,0"/>
+                <ComboBox Width="90" Margin="0,0,10,0" ItemsSource="{Binding AvailableIntervals}" SelectedItem="{Binding UpdateInterval, Mode=TwoWay}">
+                    <ComboBox.ItemTemplate>
+                        <DataTemplate>
+                            <TextBlock Text="{Binding StringFormat='{}{0} сек.'}"/>
+                        </DataTemplate>
+                    </ComboBox.ItemTemplate>
+                </ComboBox>
+                
+                <Button Content="↻" Width="30" Margin="0,0,10,0" Click="RefreshButton_Click" ToolTip="Обновить"/>
+            </StackPanel>
+            
+            <DataGrid Grid.Row="1" ItemsSource="{Binding Processes}" SelectedItem="{Binding SelectedProcess, Mode=TwoWay}"
+                      AutoGenerateColumns="False" CanUserAddRows="False" IsReadOnly="True" SelectionMode="Single">
+                <DataGrid.Columns>
+                    <DataGridTextColumn Header="PID" Binding="{Binding Id}" Width="60"/>
+                    <DataGridTextColumn Header="Имя" Binding="{Binding Name}" Width="150"/>
+                    <DataGridTextColumn Header="Приоритет" Binding="{Binding Priority}" Width="100"/>
+                    <DataGridTextColumn Header="Память" Binding="{Binding MemoryUsageFormatted}" Width="90"/>
+                    <DataGridTextColumn Header="Потоки" Binding="{Binding ThreadCount}" Width="70"/>
+                    <DataGridTextColumn Header="CPU Time" Binding="{Binding CpuTimeFormatted}" Width="100"/>
+                    <DataGridTextColumn Header="Маска CPU (Hex)" Binding="{Binding AffinityHex}" Width="110"/>
+                </DataGrid.Columns>
+            </DataGrid>
+            
+            <DataGrid Grid.Row="2" Margin="0,10,0,0" ItemsSource="{Binding SelectedProcess.Threads}"
+                      AutoGenerateColumns="False" CanUserAddRows="False" IsReadOnly="True">
+                <DataGrid.Columns>
+                    <DataGridTextColumn Header="ID Потока" Binding="{Binding Id}" Width="80"/>
+                    <DataGridTextColumn Header="Приоритет" Binding="{Binding PriorityDisplay}" Width="120"/>
+                    <DataGridTextColumn Header="Статус" Binding="{Binding StateDisplay}" Width="120"/>
+                    <DataGridTextColumn Header="CPU Time" Binding="{Binding CpuTime}" Width="150"/>
+                </DataGrid.Columns>
+            </DataGrid>
+            
+            <Expander Grid.Row="3" Header="Управление процессом" IsExpanded="True" Margin="0,10,0,0">
+                <StackPanel Margin="5">
+                    <StackPanel Orientation="Horizontal" Margin="0,0,0,10">
+                        <TextBlock Text="Приоритет:" VerticalAlignment="Center" Margin="0,0,5,0"/>
+                        <ComboBox ItemsSource="{Binding AvailablePriorities}" SelectedItem="{Binding SelectedProcess.Priority, Mode=TwoWay}" Width="120" Margin="0,0,10,0"/>
+                        <Button Content="Применить" Click="ApplyPriority_Click" IsEnabled="{Binding CanChangePriority}" Margin="0,0,20,0"/>
                         
-                        <Button Content="↻" Width="30" Margin="0,0,10,0"
-                                Click="RefreshButton_Click" ToolTip="Обновить"/>
+                        <TextBlock Text="CPU Affinity:" VerticalAlignment="Center" Margin="10,0,5,0"/>
+                        <ItemsControl ItemsSource="{Binding Cores}" VerticalAlignment="Center">
+                            <ItemsControl.ItemsPanel>
+                                <ItemsPanelTemplate>
+                                    <WrapPanel/>
+                                </ItemsPanelTemplate>
+                            </ItemsControl.ItemsPanel>
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate>
+                                    <CheckBox Content="{Binding CoreIndex}" IsChecked="{Binding IsEnabled, Mode=TwoWay}" Margin="0,0,5,0"/>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                        <Button Content="Применить маску" Click="ApplyAffinity_Click" Margin="10,0,10,0" IsEnabled="{Binding CanChangeAffinity}"/>
                     </StackPanel>
-                    
-                    <!-- Таблица процессов -->
-                    <DataGrid Grid.Row="1"  Width="Auto" HorizontalAlignment="Left" 
-                              ItemsSource="{Binding Processes}"
-                              SelectedItem="{Binding SelectedProcess, Mode=TwoWay}"
-                              AutoGenerateColumns="False" CanUserAddRows="False"
-                              IsReadOnly="True" SelectionMode="Single">
-                        <DataGrid.Columns>
-                            <DataGridTextColumn Header="PID" Binding="{Binding Id}" Width="60"/>
-                            <DataGridTextColumn Header="Имя" Binding="{Binding Name}" Width="150"/>
-                            <DataGridTextColumn Header="Приоритет" Binding="{Binding Priority}" Width="100"/>
-                            <DataGridTextColumn Header="Память" Binding="{Binding MemoryUsageFormatted}" Width="90"/>
-                            <DataGridTextColumn Header="Потоки" Binding="{Binding ThreadCount}" Width="70"/>
-                            <DataGridTextColumn Header="CPU Time" Binding="{Binding CpuTimeFormatted}" Width="100"/>
-                        </DataGrid.Columns>
-                        
-                        <!-- Подсветка высокого приоритета -->
-                        <DataGrid.RowStyle>
-                            <Style TargetType="DataGridRow">
-                                <Style.Triggers>
-                                    <DataTrigger Binding="{Binding Priority}" Value="High">
-                                        <Setter Property="Background" Value="#FFFFE0"/>
-                                    </DataTrigger>
-                                    <DataTrigger Binding="{Binding Priority}" Value="Realtime">
-                                        <Setter Property="Background" Value="#FFCCCC"/>
-                                        <Setter Property="FontWeight" Value="Bold"/>
-                                    </DataTrigger>
-                                </Style.Triggers>
-                            </Style>
-                        </DataGrid.RowStyle>
-                    </DataGrid>
-                    
-                    <!-- На Grid.Row="2" разместить таблицу DataGrid потоков выбранного процесса -->
-                    
-                    <!-- Панель управления выбранным процессом -->
-                    <Expander Grid.Row="3" VerticalAlignment="Bottom" Header="Управление процессом"
-                              IsExpanded="False" Margin="0,5,0,0">
-                        <StackPanel Margin="5">
-                            <StackPanel Orientation="Horizontal" Margin="0,0,0,10">
-                                <TextBlock Text="Приоритет:" VerticalAlignment="Center" Margin="0,0,5,0"/>
-                                <ComboBox ItemsSource="{Binding AvailablePriorities}"
-                                          SelectedItem="{Binding SelectedProcess.Priority, Mode=TwoWay}"
-                                          Width="120" Margin="0,0,10,0"/>
-                                <Button Content="Применить" Click="ApplyPriority_Click"
-                                        IsEnabled="{Binding CanChangePriority}"/>
-                            </StackPanel>
-                            
-                            <Button Content="Завершить процесс" Click="KillButton_Click"
-                                    Background="#FFD0D0" Foreground="DarkRed"
-                                    IsEnabled="{Binding CanChangePriority}" Width="150" HorizontalAlignment="Left"/>
-                        </StackPanel>
-                    </Expander>
-                    
-                    <!-- Статус -->
-                    <StatusBar Grid.Row="4">
-                        <TextBlock Text="{Binding Processes.Count, StringFormat='Процессов: {0}'}"/>
-                    </StatusBar>
-                </Grid>
-            </TabItem>
-            <TabItem Header="Иерархия">
-                <!-- В виде TreeView визуализировать древо процессов (родитель-потомки)
-                Сделать выделение родительского процесса для выбранного процесса
-                Сделать отображение количества дочерних процессов -->
-            </TabItem>
-            <TabItem Header="Визуализация">
-                <!-- Используя библиотеку LiveCharts визуализировать загрузку процессора по ядрам:
-                Сделать диаграмму распределения памяти между процессами (топ-10); -->
-            </TabItem>
-        </TabControl>
+                    <StackPanel Orientation="Horizontal" Margin="0,0,0,10">
+                        <TextBlock Text="{Binding SelectedProcess.AffinityHex, StringFormat='Hex: {0}'}" Margin="0,0,15,0" Foreground="Gray"/>
+                        <TextBlock Text="{Binding SelectedProcess.AffinityBinary, StringFormat='Bin: {0}'}" Foreground="Gray"/>
+                    </StackPanel>
+                    <Button Content="Завершить процесс" Click="KillButton_Click" Background="#FFD0D0" Foreground="DarkRed" IsEnabled="{Binding CanChangePriority}" Width="150" HorizontalAlignment="Left"/>
+                </StackPanel>
+            </Expander>
+            
+            <StatusBar Grid.Row="4" Margin="0,5,0,0">
+                <TextBlock Text="{Binding Processes.Count, StringFormat='Всего процессов: {0}'}"/>
+            </StatusBar>
+        </Grid>
+    </TabItem>
+    
+    <TabItem Header="Иерархия">
+        <TreeView ItemsSource="{Binding Hierarchy}" Margin="10">
+            <TreeView.ItemTemplate>
+                <HierarchicalDataTemplate ItemsSource="{Binding Children}">
+                    <StackPanel Orientation="Horizontal">
+                        <TextBlock Text="{Binding Process.Name}" FontWeight="Bold"/>
+                        <TextBlock Text="{Binding Process.Id, StringFormat=' (PID: {0}) '}" Foreground="Gray"/>
+                        <TextBlock Text="{Binding ChildrenCount, StringFormat='[Дочерних: {0}]'}" Foreground="Blue"/>
+                    </StackPanel>
+                </HierarchicalDataTemplate>
+            </TreeView.ItemTemplate>
+        </TreeView>
+    </TabItem>
+    
+    <TabItem Header="Визуализация">
+        <Grid Margin="10">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*"/>
+            </Grid.ColumnDefinitions>
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="*"/>
+            </Grid.RowDefinitions>
+            
+            <TextBlock Text="Топ 10 процессов по памяти (MB)" FontSize="16" FontWeight="Bold" Margin="0,0,0,10"/>
+            <lvc:PieChart Grid.Row="1" Series="{Binding MemoryChartSeries}" LegendLocation="Right" Hoverable="True"/>
+        </Grid>
+    </TabItem>
+</TabControl>
     </DockPanel>
     
 </Window>

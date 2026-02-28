@@ -5,6 +5,7 @@ using System.Diagnostics;
 using System.Linq;
 using System.Runtime.CompilerServices;
 using System.Threading.Tasks;
+using System.Windows;
 using System.Windows.Data;
 using System.Windows.Threading;
 using ProcessesMonitor.Models;
@@ -35,6 +36,18 @@ public class ProcessViewModel : INotifyPropertyChanged
             OnPropertyChanged(nameof(Processes));
         }
     }
+    
+    public ObservableCollection<ProcessNode> Hierarchy
+    {
+        get => _hierarchy;
+        set
+        {
+            _hierarchy = value;
+            OnPropertyChanged(nameof(Hierarchy));
+        }
+    }
+    
+    public ObservableCollection<CoreAffinity> Cores { get; } = new();
     
     public ProcessInfo SelectedProcess
     {
@@ -92,11 +105,19 @@ public class ProcessViewModel : INotifyPropertyChanged
     
     // CPU Cores для чекбоксов
     public int CoreCount => Environment.ProcessorCount;
+    
     public bool[] CoreStates { get; private set; }
+    
+    public SeriesCollection MemoryChartSeries { get; set; } = new SeriesCollection();
     
     public ProcessViewModel(Dispatcher dispatcher)
     {
         _dispatcher = dispatcher;
+        for (int i = 0; i < Environment.ProcessorCount; i++)
+        {
+            Cores.Add(new CoreAffinity { CoreIndex = i, IsEnabled = false });
+        }
+
         SetupCollectionView();
         SetupTimer();
         RefreshProcesses();
@@ -171,6 +192,9 @@ public class ProcessViewModel : INotifyPropertyChanged
                     SelectedProcess = procToSelect;
                 }
             }
+            
+            BuildHierarchy();
+            UpdateCharts();
         });
     }
     
@@ -204,36 +228,31 @@ public class ProcessViewModel : INotifyPropertyChanged
     public void LoadCpuAffinity()
     {
         if (SelectedProcess == null) return;
-        
         try
         {
             using var proc = Process.GetProcessById(SelectedProcess.Id);
             var mask = proc.ProcessorAffinity;
-            CoreStates = new bool[CoreCount];
-            for (int i = 0; i < CoreCount; i++)
-                CoreStates[i] = AffinityHelper.IsCoreEnabled(mask, i);
-                
-            OnPropertyChanged(nameof(CoreStates));
+            for (int i = 0; i < Cores.Count; i++)
+                Cores[i].IsEnabled = AffinityHelper.IsCoreEnabled(mask, i);
         }
         catch { /* Нет доступа */ }
     }
-    
+
     public bool ApplyCpuAffinity()
     {
-        if (SelectedProcess == null || CoreStates == null) return false;
-        
+        if (SelectedProcess == null) return false;
         try
         {
+            bool[] boolMask = Cores.Select(c => c.IsEnabled).ToArray();
             using var proc = Process.GetProcessById(SelectedProcess.Id);
-            var newMask = AffinityHelper.SetCoreMask(CoreStates);
+            var newMask = AffinityHelper.SetCoreMask(boolMask);
             proc.ProcessorAffinity = newMask;
             SelectedProcess.ProcessorAffinity = newMask;
-            OnPropertyChanged(nameof(SelectedProcess));
             return true;
         }
         catch (Exception ex)
         {
-            System.Windows.MessageBox.Show($"Ошибка: {ex.Message}");
+            MessageBox.Show($"Ошибка применения маски: {ex.Message}");
             return false;
         }
     }
@@ -284,6 +303,43 @@ public class ProcessViewModel : INotifyPropertyChanged
         {
             System.Windows.MessageBox.Show($"Не удалось завершить: {ex.Message}");
             return false;
+        }
+    }
+    
+    private void BuildHierarchy()
+    {
+        var nodes = Processes.ToDictionary(p => p.Id, p => new ProcessNode { Process = p });
+        var rootNodes = new ObservableCollection<ProcessNode>();
+
+        foreach (var node in nodes.Values)
+        {
+            if (node.Process.ParentId != 0 && nodes.ContainsKey(node.Process.ParentId))
+            {
+                nodes[node.Process.ParentId].Children.Add(node);
+                nodes[node.Process.ParentId].NotifyChildrenCount();
+            }
+            else
+            {
+                rootNodes.Add(node);
+            }
+        }
+        Hierarchy = rootNodes;
+    }
+
+    private void UpdateCharts()
+    {
+        // Топ 10 процессов по памяти
+        var topMemory = Processes.OrderByDescending(p => p.MemoryUsage).Take(10).ToList();
+    
+        MemoryChartSeries.Clear();
+        foreach (var p in topMemory)
+        {
+            MemoryChartSeries.Add(new PieSeries
+            {
+                Title = p.Name,
+                Values = new ChartValues<double> { p.MemoryUsage / 1024.0 / 1024.0 },
+                DataLabels = true
+            });
         }
     }
     

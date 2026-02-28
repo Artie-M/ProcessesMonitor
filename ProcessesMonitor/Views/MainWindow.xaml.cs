@@ -48,4 +48,12 @@ public partial class MainWindow : Window
     {
         _viewModel.KillSelectedProcess();
     }
+    
+    private void ApplyAffinity_Click(object sender, RoutedEventArgs e)
+    {
+        if (_viewModel.SelectedProcess != null)
+        {
+            _viewModel.ApplyCpuAffinity();
+        }
+    }
 }
